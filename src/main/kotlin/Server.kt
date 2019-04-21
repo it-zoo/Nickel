@@ -1,7 +1,8 @@
-import controllers.TestController
+import DAO.MessageDaoVerticle
+import controllers.RestController
 import io.vertx.core.VertxOptions
-import io.vertx.kotlin.micrometer.vertxJmxMetricsOptionsOf
 import io.vertx.rxjava.core.Vertx
+import org.apache.logging.log4j.LogManager
 
 fun main(args: Array<String>) {
     Server()
@@ -13,6 +14,8 @@ fun main(args: Array<String>) {
  * @author kostya05983
  */
 class Server {
+    private val logger = LogManager.getLogger(RestController::class.java)
+
 
     init {
         deployVerticles()
@@ -31,9 +34,10 @@ class Server {
     private fun deployVerticles() {
         val options = VertxOptions()
         Vertx.rxClusteredVertx(options).subscribe({
-            it.deployVerticle(TestController())
-        },{
-
+            it.deployVerticle(RestController())
+            it.deployVerticle(MessageDaoVerticle())
+        }, {
+            logger.error("Whiel craeting clkustered verx", it)
         })
     }
 }

@@ -3,5 +3,9 @@ package consts
 enum class FieldLabels {
     DaoMethod,
     Data,
-    Time
+    Time,
+    Key,
+    Offset,
+    Limit,
+    Id
 }

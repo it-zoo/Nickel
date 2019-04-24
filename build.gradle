@@ -22,7 +22,14 @@ dependencies {
     //logging
     compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.2'
 
+    //Arango
+    compile group: 'com.arangodb', name: 'arangodb-java-driver-async', version: '5.0.4'
+
+
     testCompile group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.3.2'
+    // https://mvnrepository.com/artifact/org.testcontainers/testcontainers
+    testCompile group: 'org.testcontainers', name: 'testcontainers', version: '1.11.2'
+
 }
 
 compileKotlin {

@@ -6,34 +6,55 @@ import com.arangodb.ArangoDatabaseAsync
 import com.arangodb.entity.BaseDocument
 import com.arangodb.util.MapBuilder
 import consts.*
-import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.rxjava.core.AbstractVerticle
 import io.vertx.rxjava.core.eventbus.Message
 import rx.Completable
 import java.time.ZonedDateTime
 import java.util.*
-import java.util.stream.Stream
-import kotlin.collections.HashMap
 
 /**
  * @author kostya05983
  */
 class MessageDaoVerticle : AbstractVerticle() {
 
-    lateinit var arangoDb: ArangoDBAsync
-    lateinit var arangoDatabaseAsync: ArangoDatabaseAsync
-    lateinit var arangoCollectionAsync: ArangoCollectionAsync
+    private lateinit var arangoDb: ArangoDBAsync
+    private lateinit var arangoDatabaseAsync: ArangoDatabaseAsync
+    private lateinit var arangoCollectionAsync: ArangoCollectionAsync
 
+
+    companion object {
+        private const val FIND_ALL_MESSAGES_QUERY = """
+        FOR message in @@collection
+        LIMIT @@offset, @@limit
+        RETURN message
+        """
+
+        private const val REMOVE_MESSAGE = """
+           REMOVE @@key in @@collection
+        """
+
+        private const val UPDATE_MESSAGE = """
+           UPDATE @@document in @@collection
+        """
+    }
 
     override fun rxStart(): Completable {
         initEventBus()
-        initDatabase()
+        val config = config()
+
+        val host = config.getString(ConfigParameters.ArangoDbHost.name)
+        val port = config.getInteger(ConfigParameters.ArangoDbPort.name)
+        initDatabase(host, port)
+
         return super.rxStart()
     }
 
-    private fun initDatabase() {
-        arangoDb = ArangoDBAsync.Builder().build()
+    private fun initDatabase(host: String, port: Int) {
+        arangoDb = ArangoDBAsync
+                .Builder()
+                .host(host, port)
+                .build()
         arangoDb.createDatabase(ArangoDatabases.Client.name).get()
         arangoDatabaseAsync = arangoDb.db(ArangoDatabases.Client.name)
         arangoDatabaseAsync.createCollection(ArangoCollections.Messages.name).get()
@@ -69,39 +90,101 @@ class MessageDaoVerticle : AbstractVerticle() {
             if (doc.key != null) {
                 message.reply("Success")
             } else {
-                message.reply("Fail")
+                message.fail(ErrorCode.CREATE_MESSAGE.code, "Fail to get document")
             }
         }
     }
 
+    /**
+     * Get message from collection
+     */
     private fun getMessage(message: Message<JsonObject>) {
         val key = message.body().getString(FieldLabels.Key.name)
 
-        val model = arangoCollectionAsync.getDocument(key, models.Message::class.java).get()
-        message.reply(model)
+        arangoCollectionAsync.getDocument(key, models.Message::class.java).whenComplete { t, u ->
+            if (u != null) {
+                message.reply(t)
+            } else {
+                message.fail(ErrorCode.GET_MESSAGE.code, "Fail to get document!!!!")
+            }
+        }
     }
 
-    val QUERY = """
-        FOR message in @@collection
-        LIMIT @@offset, @@limit
-        RETURN message
-    """.trimIndent()
-
+    /**
+     * Get all messages from db
+     */
     private fun getAllMessages(message: Message<JsonObject>) {
         val json = message.body()
 
-        val params = MapBuilder().put("@collection", ArangoCollections.Messages.name)
-                .put("@offset", FieldLabels.Offset.name).put("@limit", FieldLabels.Limit.name).get()
+        val params = MapBuilder()
+                .put("@collection", ArangoCollections.Messages.name)
+                .put("@offset", json.getInteger(FieldLabels.Offset.name))
+                .put("@limit", json.getInteger(FieldLabels.Limit.name)).get()
 
-        val streamRemaining: Stream<BaseDocument> = arangoDatabaseAsync.query(QUERY, params, BaseDocument::class.java).get().streamRemaining()
-
+        arangoDatabaseAsync
+                .query(FIND_ALL_MESSAGES_QUERY, params, BaseDocument::class.java)
+                .whenComplete { t, u ->
+                    if (u != null) {
+                        val jsonArray = t.streamRemaining()
+                                .collect(ToJsonArray())
+                        message.reply(jsonArray)
+                    } else {
+                        message.fail(ErrorCode.GET_ALL_MESSAGE.code, "Fail to get all messages")
+                    }
+                }
     }
 
+    /**
+     * Delete message by id
+     */
     private fun deleteMessage(message: Message<JsonObject>) {
+        val json = message.body()
+        val key = json.getString(FieldLabels.Key.name)
 
+        val params = MapBuilder()
+                .put("@collection", ArangoCollections.Messages.name)
+                .put("@key", key)
+                .get()
+
+        arangoDatabaseAsync.query(REMOVE_MESSAGE, params, BaseDocument::class.java)
+                .whenComplete { t, u ->
+                    if (u != null) {
+                        message.reply("Successfully delete message")
+                    } else {
+                        message.fail(ErrorCode.DELETE_MESSAGE.code, "Fail to delete message by id")
+                    }
+                }
     }
 
+    /**
+     * Update document in collections of messages
+     */
     private fun updateMessage(message: Message<JsonObject>) {
+        val json = message.body()
 
+        val document = mappingToDocument(json)
+
+        val params = MapBuilder()
+                .put("@document", document)
+                .put("@collection", ArangoCollections.Messages.name)
+                .get()
+
+        arangoDatabaseAsync.query(UPDATE_MESSAGE, params, BaseDocument::class.java)
+                .whenComplete { t, u ->
+                    if (u != null) {
+                        message.reply("Successfully update message in db")
+                    } else {
+                        message.fail(ErrorCode.UPDATE_MESSAGE.code, "Fail to update message")
+                    }
+                }
+    }
+
+    private fun mappingToDocument(json: JsonObject): BaseDocument {
+        val document = BaseDocument()
+//        document.addAttribute
+//        document.addAttribute(FieldLabels)
+
+
+        return document
     }
 }

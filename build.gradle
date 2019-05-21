@@ -17,6 +17,7 @@ dependencies {
     compile group: 'io.vertx', name: 'vertx-rx-java', version: '3.7.0'
     compile group: 'io.vertx', name: 'vertx-web', version: '3.7.0'
     compile group: 'io.vertx', name: 'vertx-hazelcast', version: '3.7.0'
+    compile group: 'io.vertx', name: 'vertx-junit5', version: '3.7.0'
     //hazelcast
     compile group: 'com.hazelcast', name: 'hazelcast', version: '3.12'
     //logging

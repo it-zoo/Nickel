@@ -1,4 +1,4 @@
-import DAO.MessageDaoVerticle
+import DAO.messages.MessageDaoVerticle
 import controllers.RestController
 import io.vertx.core.VertxOptions
 import io.vertx.rxjava.core.Vertx

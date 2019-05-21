@@ -18,37 +18,56 @@ class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
 
     override fun handle(event: RoutingContext) {
         when (event.request().method()) {
-            HttpMethod.GET -> {
-                vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
-                    put(FieldLabels.DaoMethod.name, DAOMethods.GET.name)
-                    put(MessageParams.KEY.name, event.request().getParam(MessageParams.KEY.text))
-                }).subscribe({
-                    event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().toString())
-                }, {
-                    logger.error("Can't get such message", it)
-                })
-            }
-            HttpMethod.POST -> {
-                event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" Create """)
-            }
-            HttpMethod.PUT -> {
-
-                event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" Update """)
-            }
-            HttpMethod.DELETE -> {
-                vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
-                    put(FieldLabels.DaoMethod.name, DAOMethods.DELETE.name)
-                    put(MessageParams.KEY.text, event.request().getParam(MessageParams.KEY.text))
-                }).subscribe({
-                    event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end("""Delete with key""")
-                }, {
-                    logger.error("Can't send and add to dao {}", it)
-                })
-            }
+            HttpMethod.GET -> getMessage(event)
+            HttpMethod.POST -> createMessage(event)
+            HttpMethod.PUT -> updateMessage(event)
+            HttpMethod.DELETE -> deleteMessage(event)
             else -> {
                 logger.error("No such method in message route")
-                event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" No such method """)
+                event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(" No such method  or not implemented")
             }
         }
+    }
+
+    private fun getMessage(event: RoutingContext) {
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+            put(FieldLabels.DaoMethod.name, DAOMethods.GET.name)
+            put(MessageParams.KEY.name, event.request().getParam(MessageParams.KEY.text))
+        }).subscribe({
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().toString())
+        }, {
+            logger.error("Can't get such message", it)
+        })
+    }
+
+    private fun createMessage(event: RoutingContext) {
+        val message = event.bodyAsJson
+        message.put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).subscribe({
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" Create message""")
+        }, {
+            logger.error("Error while create such message", it)
+        })
+    }
+
+    private fun updateMessage(event: RoutingContext) {
+        val message = event.bodyAsJson
+        message.put(FieldLabels.DaoMethod.name, DAOMethods.UPDATE.name)
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).subscribe({
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" Update message""")
+        }, {
+            logger.error("Error while create such message", it)
+        })
+    }
+
+    private fun deleteMessage(event: RoutingContext) {
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+            put(FieldLabels.DaoMethod.name, DAOMethods.DELETE.name)
+            put(MessageParams.KEY.text, event.request().getParam(MessageParams.KEY.text))
+        }).subscribe({
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end("""Delete with key""")
+        }, {
+            logger.error("Can't send and add to dao {}", it)
+        })
     }
 }

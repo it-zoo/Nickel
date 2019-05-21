@@ -8,5 +8,6 @@ enum class ErrorCode(val code: Int) {
     GET_MESSAGE(1),
     GET_ALL_MESSAGE(2),
     UPDATE_MESSAGE(3),
-    DELETE_MESSAGE(4)
+    DELETE_MESSAGE(4),
+    NO_SUCH_MESSAGE(5)
 }

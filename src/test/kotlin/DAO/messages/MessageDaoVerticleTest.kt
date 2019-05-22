@@ -11,8 +11,7 @@ import io.vertx.junit5.VertxExtension
 import io.vertx.junit5.VertxTestContext
 import io.vertx.rxjava.core.Vertx
 import org.junit.Rule
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -86,7 +85,7 @@ class MessageDaoVerticleTest {
     @Test
     fun testGetMessage(vertx: Vertx, context: VertxTestContext) {
         val messageToVerticle = JsonObject().apply {
-            put(FieldLabels.DaoMethod.name, DAOMethods.CREATE)
+            put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
             put("test", "param")
         }
 
@@ -98,6 +97,7 @@ class MessageDaoVerticleTest {
         }.subscribe({
             val body = it.body()
             assertNotNull(body)
+            assertNotNull(body.getString(MessageParams.KEY.text))
             assertEquals(body.getString("test"), "param")
             context.completeNow()
         }, {
@@ -106,18 +106,79 @@ class MessageDaoVerticleTest {
     }
 
     @Test
-    fun testDeleteMessage(context: VertxTestContext) {
+    fun testDeleteMessage(vertx: Vertx, context: VertxTestContext) {
+        val message = JsonObject().apply {
+            put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
+        }
 
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).flatMap {
+            vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+                put(FieldLabels.DaoMethod.name, DAOMethods.DELETE.name)
+                put(MessageParams.KEY.text, it.body().getString(MessageParams.KEY.text))
+            })
+        }.flatMap {
+            vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+                put(FieldLabels.DaoMethod.name, DAOMethods.GET.name)
+                put(MessageParams.KEY.text, it.body().getString(MessageParams.KEY.text))
+            })
+        }.subscribe({
+            assertNull(it.body())
+            context.completeNow()
+        }, {
+            context.failNow(it)
+        })
     }
 
     @Test
-    fun testUpdateMessage(context: VertxTestContext) {
+    fun testUpdateMessage(vertx: Vertx, context: VertxTestContext) {
+        val message = JsonObject().apply {
+            put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
+            put("param", "test")
+        }
 
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).flatMap {
+            vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+                put(FieldLabels.DaoMethod.name, DAOMethods.UPDATE.name)
+                put(MessageParams.KEY.text, it.body().getString(MessageParams.KEY.text))
+                put("param", "text2")
+            })
+        }.flatMap {
+            vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+                put(FieldLabels.DaoMethod.name, DAOMethods.GET.name)
+                put(MessageParams.KEY.text, it.body().getString(MessageParams.KEY.text))
+            })
+        }.subscribe({
+            val body = it.body()
+            assertNotNull(body)
+            assertEquals("text2", body.getString("param"))
+            context.completeNow()
+        }, {
+            context.failNow(it)
+        })
     }
 
 
     @Test
-    fun testGetAllMessages(context: VertxTestContext) {
+    fun testGetAllMessages(context: VertxTestContext, vertx: Vertx) {
+        val message = JsonObject().apply {
+            put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
+        }
 
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).flatMap {
+            vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message)
+        }.flatMap {
+            vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+                put(FieldLabels.DaoMethod.name, DAOMethods.GET_ALL.name)
+                put(FieldLabels.Offset.name, 0)
+                put(FieldLabels.Limit.name, 10)
+            })
+        }.subscribe({
+            val body = it.body()
+            assertNotNull(body)
+            assertNotEquals(0, body.getJsonArray(FieldLabels.Data.name).size())
+            context.completeNow()
+        }, {
+            context.failNow(it)
+        })
     }
 }

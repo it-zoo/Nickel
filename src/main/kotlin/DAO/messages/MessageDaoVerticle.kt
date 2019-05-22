@@ -26,18 +26,10 @@ class MessageDaoVerticle : AbstractVerticle() {
 
 
     companion object {
-        private const val FIND_ALL_MESSAGES_QUERY = """
-        FOR message in @collection
-        LIMIT @offset, @limit
-        RETURN message
-        """
-
-        private const val REMOVE_MESSAGE = """
-           REMOVE @key in @collection
-        """
-
-        private const val UPDATE_MESSAGE = """
-           UPDATE @document in @collection
+        private val FIND_ALL_MESSAGES_QUERY = """
+        FOR document in ${ArangoCollections.Messages.name}
+                LIMIT @offset, @limit
+                return document
         """
     }
 
@@ -93,8 +85,6 @@ class MessageDaoVerticle : AbstractVerticle() {
 
     private fun createMessage(message: Message<JsonObject>) {
         val body = message.body()
-//        val model = models.Message(UUID.randomUUID().toString(), body.getString(FieldLabels.Data.name),
-//                ZonedDateTime.parse(body.getString(FieldLabels.Time.name)))
         val document = BaseDocument()
         document.properties = body.map
 
@@ -113,11 +103,17 @@ class MessageDaoVerticle : AbstractVerticle() {
      * Get message from collection
      */
     private fun getMessage(message: Message<JsonObject>) {
-        val key = message.body().getString(FieldLabels.Key.name)
+        val key = message.body().getString(MessageParams.KEY.text)
 
-        arangoCollectionAsync.getDocument(key, models.Message::class.java).whenComplete { t, u ->
-            if (u != null) {
-                message.reply(t)
+        arangoCollectionAsync.getDocument(key, BaseDocument::class.java).whenComplete { t, u ->
+            if (u == null) {
+                if (t != null) {
+                    val json = JsonObject(t.properties)
+                    json.put(MessageParams.KEY.text, t.key)
+                    message.reply(json)
+                } else {
+                    message.reply(t)
+                }
             } else {
                 message.fail(ErrorCode.GET_MESSAGE.code, "Fail to get document!!!!")
             }
@@ -131,17 +127,19 @@ class MessageDaoVerticle : AbstractVerticle() {
         val json = message.body()
 
         val params = MapBuilder()
-                .put("collection", ArangoCollections.Messages.name)
                 .put("offset", json.getInteger(FieldLabels.Offset.name))
                 .put("limit", json.getInteger(FieldLabels.Limit.name)).get()
 
         arangoDatabaseAsync
                 .query(FIND_ALL_MESSAGES_QUERY, params, BaseDocument::class.java)
                 .whenComplete { t, u ->
-                    if (u != null) {
+                    if (t != null) {
                         val jsonArray = t.streamRemaining()
                                 .collect(ToJsonArray())
-                        message.reply(jsonArray)
+
+                        message.reply(JsonObject().apply {
+                            put(FieldLabels.Data.name, jsonArray)
+                        })
                     } else {
                         message.fail(ErrorCode.GET_ALL_MESSAGE.code, "Fail to get all messages")
                     }
@@ -153,21 +151,17 @@ class MessageDaoVerticle : AbstractVerticle() {
      */
     private fun deleteMessage(message: Message<JsonObject>) {
         val json = message.body()
-        val key = json.getString(FieldLabels.Key.name)
+        val key = json.getString(MessageParams.KEY.text)
 
-        val params = MapBuilder()
-                .put("collection", ArangoCollections.Messages.name)
-                .put("key", key)
-                .get()
-
-        arangoDatabaseAsync.query(REMOVE_MESSAGE, params, BaseDocument::class.java)
-                .whenComplete { t, u ->
-                    if (u != null) {
-                        message.reply("Successfully delete message")
-                    } else {
-                        message.fail(ErrorCode.DELETE_MESSAGE.code, "Fail to delete message by id")
-                    }
-                }
+        arangoCollectionAsync.deleteDocument(key).whenComplete { t, u ->
+            if (t != null) {
+                message.reply(JsonObject().apply {
+                    put(MessageParams.KEY.text, t.key)
+                })
+            } else {
+                message.fail(ErrorCode.DELETE_MESSAGE.code, "Fail to delete message by id")
+            }
+        }
     }
 
     /**
@@ -178,19 +172,15 @@ class MessageDaoVerticle : AbstractVerticle() {
 
         val document = mappingToDocument(json)
 
-        val params = MapBuilder()
-                .put("document", document)
-                .put("collection", ArangoCollections.Messages.name)
-                .get()
-
-        arangoDatabaseAsync.query(UPDATE_MESSAGE, params, BaseDocument::class.java)
-                .whenComplete { t, u ->
-                    if (u != null) {
-                        message.reply("Successfully update message in db")
-                    } else {
-                        message.fail(ErrorCode.UPDATE_MESSAGE.code, "Fail to update message")
-                    }
-                }
+        arangoCollectionAsync.updateDocument(json.getString(MessageParams.KEY.text), document).whenComplete { t, u ->
+            if (t != null) {
+                val response = JsonObject()
+                response.put(MessageParams.KEY.text, t.key)
+                message.reply(response)
+            } else {
+                message.fail(ErrorCode.UPDATE_MESSAGE.code, "Fail to update message")
+            }
+        }
     }
 
     private fun mappingToDocument(json: JsonObject): BaseDocument {

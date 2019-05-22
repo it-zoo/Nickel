@@ -7,5 +7,5 @@ enum class FieldLabels {
     Key,
     Offset,
     Limit,
-    Id
+    Id,
 }

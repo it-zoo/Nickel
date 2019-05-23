@@ -1,8 +1,5 @@
 package DAO.messages
 
-import com.arangodb.ArangoCollectionAsync
-import com.arangodb.ArangoDBAsync
-import com.arangodb.ArangoDatabaseAsync
 import consts.*
 import consts.messages.MessageParams
 import io.vertx.core.DeploymentOptions
@@ -24,9 +21,6 @@ import org.testcontainers.containers.output.WaitingConsumer
 @ExtendWith(VertxExtension::class)
 class MessageDaoVerticleTest {
 
-    private lateinit var arangoDb: ArangoDBAsync
-    private lateinit var arangoDatabaseAsync: ArangoDatabaseAsync
-    private lateinit var arangoCollectionAsync: ArangoCollectionAsync
     @Rule
     public val arangoContainer = FixedHostPortGenericContainer<Nothing>("arangodb/arangodb:3.4.4")
 
@@ -41,12 +35,6 @@ class MessageDaoVerticleTest {
         consumer.waitUntil {
             it.utf8String.contains("ArangoDB (version 3.4.4 [linux]) is ready for business. Have fun!")
         }
-
-        arangoDb = ArangoDBAsync.Builder().build()
-        arangoDb.createDatabase(ArangoDatabases.Client.name).get()
-        arangoDatabaseAsync = arangoDb.db(ArangoDatabases.Client.name)
-        arangoDatabaseAsync.createCollection(ArangoCollections.Messages.name).get()
-        arangoCollectionAsync = arangoDatabaseAsync.collection(ArangoCollections.Messages.name)
 
         val config = prepareConfig()
 
@@ -65,12 +53,11 @@ class MessageDaoVerticleTest {
         return json
     }
 
-    private fun addDocumentToDb(model: models.Message) = arangoCollectionAsync.insertDocument(model)
-
     @Test
     fun testCreateMessage(vertx: Vertx, context: VertxTestContext) {
         val messageToVerticle = JsonObject().apply {
             put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
+            put(MessageParams.USER_ID.text, "kek")
         }
 
         vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, messageToVerticle)
@@ -134,6 +121,7 @@ class MessageDaoVerticleTest {
         val message = JsonObject().apply {
             put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
             put("param", "test")
+            put("user_id", "kek")
         }
 
         vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).flatMap {
@@ -162,6 +150,7 @@ class MessageDaoVerticleTest {
     fun testGetAllMessages(context: VertxTestContext, vertx: Vertx) {
         val message = JsonObject().apply {
             put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
+            put("user_id", "kek")
         }
 
         vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).flatMap {
@@ -171,6 +160,7 @@ class MessageDaoVerticleTest {
                 put(FieldLabels.DaoMethod.name, DAOMethods.GET_ALL.name)
                 put(FieldLabels.Offset.name, 0)
                 put(FieldLabels.Limit.name, 10)
+                put(MessageParams.USER_ID.text, "kek")
             })
         }.subscribe({
             val body = it.body()

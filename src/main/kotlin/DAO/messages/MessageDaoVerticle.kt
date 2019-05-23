@@ -28,6 +28,7 @@ class MessageDaoVerticle : AbstractVerticle() {
     companion object {
         private val FIND_ALL_MESSAGES_QUERY = """
         FOR document in ${ArangoCollections.Messages.name}
+                FILTER document.user_id == @userId
                 LIMIT @offset, @limit
                 return document
         """
@@ -45,7 +46,6 @@ class MessageDaoVerticle : AbstractVerticle() {
     }
 
     private fun initDatabase(host: String, port: Int) {
-//        val completable =
         arangoDb = ArangoDBAsync
                 .Builder()
                 .host(host, port)
@@ -128,7 +128,8 @@ class MessageDaoVerticle : AbstractVerticle() {
 
         val params = MapBuilder()
                 .put("offset", json.getInteger(FieldLabels.Offset.name))
-                .put("limit", json.getInteger(FieldLabels.Limit.name)).get()
+                .put("limit", json.getInteger(FieldLabels.Limit.name))
+                .put("userId", json.getString(MessageParams.USER_ID.text)).get()
 
         arangoDatabaseAsync
                 .query(FIND_ALL_MESSAGES_QUERY, params, BaseDocument::class.java)

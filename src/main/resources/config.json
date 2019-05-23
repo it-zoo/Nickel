@@ -1,0 +1,5 @@
+{
+  "Port": "8080",
+  "ArangoDbHost": "172.17.0.2",
+  "ArangoDbPort": 8529
+}

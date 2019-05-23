@@ -10,6 +10,7 @@ repositories {
 }
 
 mainClassName = 'ServerKt'
+sourceCompatibility = '1.8'
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"

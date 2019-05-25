@@ -90,9 +90,14 @@ class MessageDaoVerticle : AbstractVerticle() {
 
         arangoCollectionAsync.insertDocument(document).whenComplete { doc, ex ->
             if (doc.key != null) {
-                message.reply(JsonObject().apply {
-                    put(MessageParams.KEY.text, doc.key)
-                })
+                arangoCollectionAsync.getDocument(doc.key, BaseDocument::class.java).whenComplete { t, u ->
+                    message.reply(JsonObject().apply {
+                        put(MessageParams.KEY.text, doc.key)
+                        t.properties.forEach {
+                            put(it.key, it.value)
+                        }
+                    })
+                }
             } else {
                 message.fail(ErrorCode.CREATE_MESSAGE.code, "Fail to get document")
             }

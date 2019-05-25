@@ -2,8 +2,11 @@ package controllers
 
 import controllers.messages.MessageHandler
 import controllers.messages.MessagesAllHandler
+import io.vertx.core.http.HttpMethod
 import io.vertx.rxjava.core.AbstractVerticle
 import io.vertx.rxjava.ext.web.Router
+import io.vertx.rxjava.ext.web.handler.BodyHandler
+import io.vertx.rxjava.ext.web.handler.CorsHandler
 import org.apache.logging.log4j.LogManager
 import rx.Completable
 
@@ -37,6 +40,33 @@ class RestController : AbstractVerticle() {
      */
     private fun initRouter(): Router {
         val router = Router.router(vertx)
+
+        val allowedHeaders = HashSet<String>()
+        allowedHeaders.add("x-request-with")
+        allowedHeaders.add("Access-Control-Allow-Origin")
+        allowedHeaders.add("origin")
+        allowedHeaders.add("Content-type")
+        allowedHeaders.add("accept")
+        allowedHeaders.add("X-PINGARUNER")
+
+        val allowerMethods = HashSet<HttpMethod>()
+        allowerMethods.add(HttpMethod.GET)
+        allowerMethods.add(HttpMethod.POST)
+        allowerMethods.add(HttpMethod.PUT)
+        allowerMethods.add(HttpMethod.DELETE)
+
+        val corsHandler = CorsHandler.create("*")
+        corsHandler.allowedHeaders(allowedHeaders)
+        corsHandler.allowedMethod(HttpMethod.GET)
+        corsHandler.allowedMethod(HttpMethod.POST)
+        corsHandler.allowedMethod(HttpMethod.PUT)
+        corsHandler.allowedMethod(HttpMethod.DELETE)
+        router.route().handler {
+            corsHandler.handle(it)
+        }
+
+        router.route().handler(BodyHandler.create())
+
         router.route(MESSAGES).handler(messageHandler)
         router.route(MESSAGES_ALL).handler(messageAllHandler)
         return router

@@ -150,7 +150,7 @@ class MessageDaoVerticleTest {
     fun testGetAllMessages(context: VertxTestContext, vertx: Vertx) {
         val message = JsonObject().apply {
             put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
-            put("user_id", "kek")
+            put("userId", "1")
         }
 
         vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).flatMap {
@@ -160,7 +160,7 @@ class MessageDaoVerticleTest {
                 put(FieldLabels.DaoMethod.name, DAOMethods.GET_ALL.name)
                 put(FieldLabels.Offset.name, 0)
                 put(FieldLabels.Limit.name, 10)
-                put(MessageParams.USER_ID.text, "kek")
+                put(MessageParams.USER_ID.text, "1")
             })
         }.subscribe({
             val body = it.body()

@@ -3,6 +3,7 @@ package controllers.messages
 import consts.DAOMethods
 import consts.EventBusAddresses
 import consts.FieldLabels
+import consts.messages.MessageParams
 import controllers.RestController
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.vertx.core.Handler
@@ -22,8 +23,12 @@ class MessagesAllHandler(private val vertx: Vertx) : Handler<RoutingContext> {
     override fun handle(event: RoutingContext) {
         when (event.request().method()) {
             HttpMethod.GET -> {
-                val message = event.bodyAsJson
-                vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message.put(FieldLabels.DaoMethod.name, DAOMethods.GET_ALL.name)).subscribe({
+                vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, JsonObject().apply {
+                    put(FieldLabels.DaoMethod.name, DAOMethods.GET_ALL.name)
+                    put(MessageParams.USER_ID.text, event.request().getParam(MessageParams.USER_ID.text))
+                    put(FieldLabels.Offset.name, event.request().getParam(FieldLabels.Offset.name).toInt())
+                    put(FieldLabels.Limit.name, event.request().getParam(FieldLabels.Limit.name).toInt())
+                }).subscribe({
                     event.request().response().end(it.body().encode())
                 }, {
                     logger.error("Can't getAll from dao {}", it)

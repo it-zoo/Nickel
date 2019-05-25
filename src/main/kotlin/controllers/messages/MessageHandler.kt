@@ -34,7 +34,7 @@ class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
             put(FieldLabels.DaoMethod.name, DAOMethods.GET.name)
             put(MessageParams.KEY.name, event.request().getParam(MessageParams.KEY.text))
         }).subscribe({
-            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().toString())
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().encode())
         }, {
             logger.error("Can't get such message", it)
         })
@@ -44,7 +44,7 @@ class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
         val message = event.bodyAsJson
         message.put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
         vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).subscribe({
-            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" Create message""")
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().encode())
         }, {
             logger.error("Error while create such message", it)
         })
@@ -54,7 +54,7 @@ class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
         val message = event.bodyAsJson
         message.put(FieldLabels.DaoMethod.name, DAOMethods.UPDATE.name)
         vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).subscribe({
-            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(""" Update message""")
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().encode())
         }, {
             logger.error("Error while create such message", it)
         })
@@ -65,7 +65,7 @@ class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
             put(FieldLabels.DaoMethod.name, DAOMethods.DELETE.name)
             put(MessageParams.KEY.text, event.request().getParam(MessageParams.KEY.text))
         }).subscribe({
-            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end("""Delete with key""")
+            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().encode())
         }, {
             logger.error("Can't send and add to dao {}", it)
         })

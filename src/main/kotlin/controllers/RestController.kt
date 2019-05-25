@@ -1,5 +1,6 @@
 package controllers
 
+import consts.ConfigParameters
 import controllers.messages.MessageHandler
 import controllers.messages.MessagesAllHandler
 import io.vertx.core.http.HttpMethod
@@ -26,7 +27,10 @@ class RestController : AbstractVerticle() {
 
 
     override fun rxStart(): Completable {
-        messageHandler = MessageHandler(vertx)
+        val host = config().getString(ConfigParameters.MardukHost.name)
+        val port = config().getInteger(ConfigParameters.MardukPort.name)
+
+        messageHandler = MessageHandler(vertx, "http://$host:$port")
         messageAllHandler = MessagesAllHandler(vertx)
         val router = initRouter()
 

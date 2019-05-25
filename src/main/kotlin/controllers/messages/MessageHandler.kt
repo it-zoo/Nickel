@@ -8,13 +8,20 @@ import controllers.RestController
 import io.vertx.core.Handler
 import io.vertx.core.http.HttpHeaders
 import io.vertx.core.http.HttpMethod
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.rxjava.core.Vertx
 import io.vertx.rxjava.ext.web.RoutingContext
+import io.vertx.rxjava.ext.web.client.WebClient
 import org.apache.logging.log4j.LogManager
 
-class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
+class MessageHandler(private val vertx: Vertx, private val address: String) : Handler<RoutingContext> {
     private val logger = LogManager.getLogger(RestController::class.java)
+    private val webClient: WebClient = WebClient.create(vertx)
+
+    init {
+
+    }
 
     override fun handle(event: RoutingContext) {
         when (event.request().method()) {
@@ -43,11 +50,19 @@ class MessageHandler(private val vertx: Vertx) : Handler<RoutingContext> {
     private fun createMessage(event: RoutingContext) {
         val message = event.bodyAsJson
         message.put(FieldLabels.DaoMethod.name, DAOMethods.CREATE.name)
-        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message).subscribe({
-            event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(it.body().encode())
-        }, {
-            logger.error("Error while create such message", it)
-        })
+
+        vertx.eventBus().rxSend<JsonObject>(EventBusAddresses.MessageDao.name, message)
+                .flatMap {
+                    webClient.postAbs(address).rxSendJson(message)
+                }.subscribe({
+                    val marduk = JsonObject(String(it.body().bytes))
+                    val jsonObject = JsonObject().apply {
+                        put(FieldLabels.Data.name, JsonArray().add(message).add(marduk))
+                    }
+                    event.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/json").end(jsonObject.encode())
+                }, {
+                    logger.error("Error while create such message", it)
+                })
     }
 
     private fun updateMessage(event: RoutingContext) {

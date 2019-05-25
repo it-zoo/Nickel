@@ -28,7 +28,7 @@ class MessageDaoVerticle : AbstractVerticle() {
     companion object {
         private val FIND_ALL_MESSAGES_QUERY = """
         FOR document in ${ArangoCollections.Messages.name}
-                FILTER document.userId == @userId
+                FILTER document.userId==@userId
                 LIMIT @offset, @limit
                 return document
         """
